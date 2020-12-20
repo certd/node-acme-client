@@ -5,7 +5,9 @@
  */
 
 const crypto = require('crypto');
-const debug = require('debug')('acme-client');
+const logger = require('./util.log.js');
+
+const debug = logger.info;
 const Promise = require('bluebird');
 const HttpClient = require('./http');
 const AcmeApi = require('./api');
@@ -152,7 +154,7 @@ class AcmeClient {
             this.getAccountUrl();
 
             /* Account URL exists */
-            debug('Account URL exists, returning updateAccount()');
+            logger.info('Account URL exists, returning updateAccount()');
             return this.updateAccount(data);
         }
         catch (e) {
@@ -160,7 +162,7 @@ class AcmeClient {
 
             /* HTTP 200: Account exists */
             if (resp.status === 200) {
-                debug('Account already exists (HTTP 200), returning updateAccount()');
+                logger.info('Account already exists (HTTP 200), returning updateAccount()');
                 return this.updateAccount(data);
             }
 
@@ -190,7 +192,7 @@ class AcmeClient {
             this.api.getAccountUrl();
         }
         catch (e) {
-            debug('No account URL found, returning createAccount()');
+            logger.info('No account URL found, returning createAccount()');
             return this.createAccount(data);
         }
 
@@ -491,7 +493,7 @@ class AcmeClient {
             await verify[challenge.type](authz, challenge, keyAuthorization);
         };
 
-        debug('Waiting for ACME challenge verification', this.backoffOpts);
+        logger.info('Waiting for ACME challenge verification', this.backoffOpts);
         return util.retry(verifyFn, this.backoffOpts);
     }
 
@@ -553,7 +555,7 @@ class AcmeClient {
             const resp = await this.api.apiRequest(item.url, null, [200]);
 
             /* Verify status */
-            debug(`Item has status: ${resp.data.status}`);
+            logger.info(`Item has status: ${resp.data.status}`);
 
             if (resp.data.status === 'invalid') {
                 abort();
@@ -569,7 +571,7 @@ class AcmeClient {
             throw new Error(`Unexpected item status: ${resp.data.status}`);
         };
 
-        debug(`Waiting for valid status from: ${item.url}`, this.backoffOpts);
+        logger.info(`Waiting for valid status from: ${item.url}`, this.backoffOpts);
         return util.retry(verifyFn, this.backoffOpts);
     }
 

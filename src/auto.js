@@ -3,7 +3,9 @@
  */
 
 const Promise = require('bluebird');
-const debug = require('debug')('acme-client');
+const logger = require('./util.log.js');
+
+const debug = logger.info;
 const forge = require('./crypto/forge');
 
 const defaultOpts = {
@@ -43,14 +45,14 @@ module.exports = async function(client, userOpts) {
      * Register account
      */
 
-    debug('[auto] Checking account');
+    logger.info('[auto] Checking account');
 
     try {
         client.getAccountUrl();
-        debug('[auto] Account URL already exists, skipping account registration');
+        logger.info('[auto] Account URL already exists, skipping account registration');
     }
     catch (e) {
-        debug('[auto] Registering account');
+        logger.info('[auto] Registering account');
         await client.createAccount(accountPayload);
     }
 
@@ -59,30 +61,30 @@ module.exports = async function(client, userOpts) {
      * Parse domains from CSR
      */
 
-    debug('[auto] Parsing domains from Certificate Signing Request');
+    logger.info('[auto] Parsing domains from Certificate Signing Request');
     const csrDomains = await forge.readCsrDomains(opts.csr);
     const domains = [csrDomains.commonName].concat(csrDomains.altNames);
 
-    debug(`[auto] Resolved ${domains.length} domains from parsing the Certificate Signing Request`);
+    logger.info(`[auto] Resolved ${domains.length} domains from parsing the Certificate Signing Request`);
 
 
     /**
      * Place order
      */
 
-    debug('[auto] Placing new certificate order with ACME provider');
+    logger.info('[auto] Placing new certificate order with ACME provider');
     const orderPayload = { identifiers: domains.map((d) => ({ type: 'dns', value: d })) };
     const order = await client.createOrder(orderPayload);
     const authorizations = await client.getAuthorizations(order);
 
-    debug(`[auto] Placed certificate order successfully, received ${authorizations.length} identity authorizations`);
+    logger.info(`[auto] Placed certificate order successfully, received ${authorizations.length} identity authorizations`);
 
 
     /**
      * Resolve and satisfy challenges
      */
 
-    debug('[auto] Resolving and satisfying authorization challenges');
+    logger.info('[auto] Resolving and satisfying authorization challenges');
 
     const challengePromises = authorizations.map(async (authz) => {
         const d = authz.identifier.value;
@@ -101,10 +103,10 @@ module.exports = async function(client, userOpts) {
             throw new Error(`Unable to select challenge for ${d}, no challenge found`);
         }
 
-        debug(`[auto] [${d}] Found ${authz.challenges.length} challenges, selected type: ${challenge.type}`);
+        logger.info(`[auto] [${d}] Found ${authz.challenges.length} challenges, selected type: ${challenge.type}`);
 
         /* Trigger challengeCreateFn() */
-        debug(`[auto] [${d}] Trigger challengeCreateFn()`);
+        logger.info(`[auto] [${d}] Trigger challengeCreateFn()`);
         const keyAuthorization = await client.getChallengeKeyAuthorization(challenge);
 
         try {
@@ -112,32 +114,32 @@ module.exports = async function(client, userOpts) {
 
             /* Challenge verification */
             if (opts.skipChallengeVerification === true) {
-                debug(`[auto] [${d}] Skipping challenge verification since skipChallengeVerification=true`);
+                logger.info(`[auto] [${d}] Skipping challenge verification since skipChallengeVerification=true`);
             }
             else {
-                debug(`[auto] [${d}] Running challenge verification`);
+                logger.info(`[auto] [${d}] Running challenge verification`);
                 await client.verifyChallenge(authz, challenge);
             }
 
             /* Complete challenge and wait for valid status */
-            debug(`[auto] [${d}] Completing challenge with ACME provider and waiting for valid status`);
+            logger.info(`[auto] [${d}] Completing challenge with ACME provider and waiting for valid status`);
             await client.completeChallenge(challenge);
             await client.waitForValidStatus(challenge);
         }
         finally {
             /* Trigger challengeRemoveFn(), suppress errors */
-            debug(`[auto] [${d}] Trigger challengeRemoveFn()`);
+            logger.info(`[auto] [${d}] Trigger challengeRemoveFn()`);
 
             try {
                 await opts.challengeRemoveFn(authz, challenge, keyAuthorization);
             }
             catch (e) {
-                debug(`[auto] [${d}] challengeRemoveFn threw error: ${e.message}`);
+                logger.info(`[auto] [${d}] challengeRemoveFn threw error: ${e.message}`);
             }
         }
     });
 
-    debug('[auto] Waiting for challenge valid status');
+    logger.info('[auto] Waiting for challenge valid status');
     await Promise.all(challengePromises);
 
 
@@ -145,7 +147,7 @@ module.exports = async function(client, userOpts) {
      * Finalize order and download certificate
      */
 
-    debug('[auto] Finalizing order and downloading certificate');
+    logger.info('[auto] Finalizing order and downloading certificate');
     await client.finalizeOrder(order, opts.csr);
     return client.getCertificate(order, opts.preferredChain);
 };

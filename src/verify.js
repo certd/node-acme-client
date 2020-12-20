@@ -4,7 +4,9 @@
 
 const Promise = require('bluebird');
 const dns = Promise.promisifyAll(require('dns'));
-const debug = require('debug')('acme-client');
+const logger = require('./util.log.js');
+
+const debug = logger.info;
 const axios = require('./axios');
 
 
@@ -24,17 +26,17 @@ async function verifyHttpChallenge(authz, challenge, keyAuthorization, suffix = 
     const httpPort = axios.defaults.acmeSettings.httpChallengePort || 80;
     const challengeUrl = `http://${authz.identifier.value}:${httpPort}${suffix}`;
 
-    debug(`Sending HTTP query to ${authz.identifier.value}, suffix: ${suffix}, port: ${httpPort}`);
+    logger.info(`Sending HTTP query to ${authz.identifier.value}, suffix: ${suffix}, port: ${httpPort}`);
     const resp = await axios.get(challengeUrl);
     const data = (resp.data || '').replace(/\s+$/, '');
 
-    debug(`Query successful, HTTP status code: ${resp.status}`);
+    logger.info(`Query successful, HTTP status code: ${resp.status}`);
 
     if (!data || (data !== keyAuthorization)) {
         throw new Error(`Authorization not found in HTTP response from ${authz.identifier.value}`);
     }
 
-    debug(`Key authorization match for ${challenge.type}/${authz.identifier.value}, ACME challenge verified`);
+    logger.info(`Key authorization match for ${challenge.type}/${authz.identifier.value}, ACME challenge verified`);
     return true;
 }
 
@@ -52,34 +54,34 @@ async function verifyHttpChallenge(authz, challenge, keyAuthorization, suffix = 
  */
 
 async function verifyDnsChallenge(authz, challenge, keyAuthorization, prefix = '_acme-challenge.') {
-    debug(`Resolving DNS TXT records for ${authz.identifier.value}, prefix: ${prefix}`);
+    logger.info(`Resolving DNS TXT records for ${authz.identifier.value}, prefix: ${prefix}`);
     let challengeRecord = `${prefix}${authz.identifier.value}`;
 
     try {
         /* Attempt CNAME record first */
-        debug(`Checking CNAME for record ${challengeRecord}`);
+        logger.info(`Checking CNAME for record ${challengeRecord}`);
         const cnameRecords = await dns.resolveCnameAsync(challengeRecord);
 
         if (cnameRecords.length) {
-            debug(`CNAME found at ${challengeRecord}, new challenge record: ${cnameRecords[0]}`);
+            logger.info(`CNAME found at ${challengeRecord}, new challenge record: ${cnameRecords[0]}`);
             challengeRecord = cnameRecords[0];
         }
     }
     catch (e) {
-        debug(`No CNAME found for record ${challengeRecord}`);
+        logger.info(`No CNAME found for record ${challengeRecord}`);
     }
 
     /* Read TXT record */
     const result = await dns.resolveTxtAsync(challengeRecord);
     const records = [].concat(...result);
 
-    debug(`Query successful, found ${records.length} DNS TXT records`);
+    logger.info(`Query successful, found ${records.length} DNS TXT records`);
 
     if (records.indexOf(keyAuthorization) === -1) {
         throw new Error(`Authorization not found in DNS TXT records for ${authz.identifier.value}`);
     }
 
-    debug(`Key authorization match for ${challenge.type}/${authz.identifier.value}, ACME challenge verified`);
+    logger.info(`Key authorization match for ${challenge.type}/${authz.identifier.value}, ACME challenge verified`);
     return true;
 }
 

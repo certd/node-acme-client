@@ -4,7 +4,9 @@
 
 const Promise = require('bluebird');
 const Backoff = require('backo2');
-const debug = require('debug')('acme-client');
+const logger = require('./util.log.js');
+
+const debug = logger.info;
 const forge = require('./crypto/forge');
 
 
@@ -30,7 +32,7 @@ async function retryPromise(fn, attempts, backoff) {
         }
 
         const duration = backoff.duration();
-        debug(`Promise rejected attempt #${backoff.attempts}, retrying in ${duration}ms: ${e.message}`);
+        logger.info(`Promise rejected attempt #${backoff.attempts}, retrying in ${duration}ms: ${e.message}`);
 
         await Promise.delay(duration);
         return retryPromise(fn, attempts, backoff);
@@ -121,18 +123,18 @@ async function findCertificateChainForIssuer(chains, issuer) {
 
             /* Found match, return it */
             if (issuerCollection.includes(issuer)) {
-                debug(`Found matching certificate for preferred issuer="${issuer}", issuers=${JSON.stringify(issuerCollection)}`);
+                logger.info(`Found matching certificate for preferred issuer="${issuer}", issuers=${JSON.stringify(issuerCollection)}`);
                 return chain;
             }
 
             /* No match, throw error */
-            debug(`Unable to match certificate for preferred issuer="${issuer}", issuers=${JSON.stringify(issuerCollection)}`);
+            logger.info(`Unable to match certificate for preferred issuer="${issuer}", issuers=${JSON.stringify(issuerCollection)}`);
             throw new Error('Certificate issuer mismatch');
         }));
     }
     catch (e) {
         /* No certificates matched, return default */
-        debug(`Found no match in ${chains.length} certificate chains for preferred issuer="${issuer}", returning default certificate chain`);
+        logger.info(`Found no match in ${chains.length} certificate chains for preferred issuer="${issuer}", returning default certificate chain`);
         return chains[0];
     }
 }

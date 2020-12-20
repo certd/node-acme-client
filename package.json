@@ -1,8 +1,8 @@
 {
-    "name": "acme-client",
-    "description": "Simple and unopinionated ACME client",
+    "name": "@certd/acme-client",
+    "description": "Simple and unopinionated ACME client,base version 4.1.2",
     "author": "nmorsman",
-    "version": "4.1.2",
+    "version": "0.0.1",
     "main": "src/index.js",
     "types": "types",
     "license": "MIT",
@@ -19,7 +19,8 @@
         "backo2": "^1.0.0",
         "bluebird": "^3.5.0",
         "debug": "^4.1.1",
-        "node-forge": "^0.10.0"
+        "node-forge": "^0.10.0",
+        "log4js": "^6.3.0"
     },
     "devDependencies": {
         "@types/node": "^14.0.5",

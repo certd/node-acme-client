@@ -140,7 +140,13 @@ module.exports = async function(client, userOpts) {
     });
 
     logger.info('[auto] Waiting for challenge valid status');
-    await Promise.all(challengePromises);
+    try {
+        await Promise.all(challengePromises);
+    }
+    catch (e) {
+        logger.error('验证出错：', e);
+        throw e;
+    }
 
 
     /**

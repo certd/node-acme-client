@@ -159,12 +159,12 @@ class AcmeClient {
         }
         catch (e) {
             const resp = await this.api.createAccount(data);
-
+            // TODO 先注释，可加快速度
             /* HTTP 200: Account exists */
-            if (resp.status === 200) {
-                logger.info('Account already exists (HTTP 200), returning updateAccount()');
-                return this.updateAccount(data);
-            }
+            // if (resp.status === 200) {
+            //     logger.info('Account already exists (HTTP 200), returning updateAccount()');
+            //     return this.updateAccount(data);
+            // }
 
             return resp.data;
         }

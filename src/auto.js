@@ -109,8 +109,9 @@ module.exports = async function(client, userOpts) {
         logger.info(`[auto] [${d}] Trigger challengeCreateFn()`);
         const keyAuthorization = await client.getChallengeKeyAuthorization(challenge);
 
+        let recordItem;
         try {
-            await opts.challengeCreateFn(authz, challenge, keyAuthorization);
+            recordItem = await opts.challengeCreateFn(authz, challenge, keyAuthorization);
 
             /* Challenge verification */
             if (opts.skipChallengeVerification === true) {
@@ -131,7 +132,7 @@ module.exports = async function(client, userOpts) {
             logger.info(`[auto] [${d}] Trigger challengeRemoveFn()`);
 
             try {
-                await opts.challengeRemoveFn(authz, challenge, keyAuthorization);
+                await opts.challengeRemoveFn(authz, challenge, keyAuthorization, recordItem);
             }
             catch (e) {
                 logger.info(`[auto] [${d}] challengeRemoveFn threw error: ${e.message}`);

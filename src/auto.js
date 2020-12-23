@@ -20,6 +20,13 @@ const defaultOpts = {
 };
 
 
+function sleep(time) {
+    return new Promise((resovle) => {
+        setTimeout(() => {
+            resovle();
+        }, time);
+    });
+}
 /**
  * ACME client auto mode
  *
@@ -86,7 +93,8 @@ module.exports = async function(client, userOpts) {
 
     logger.info('[auto] Resolving and satisfying authorization challenges');
 
-    const challengePromises = authorizations.map(async (authz) => {
+    const challengePromises = authorizations.map(async (authz, index) => {
+        await sleep(index * 3000); // 延迟3秒再请求下一个
         const d = authz.identifier.value;
 
         /* Select challenge based on priority */

@@ -93,8 +93,8 @@ module.exports = async function(client, userOpts) {
 
     logger.info('[auto] Resolving and satisfying authorization challenges');
 
-    const challengePromises = authorizations.map(async (authz, index) => {
-        await sleep(index * 3000); // 延迟3秒再请求下一个
+    // 获取challenge列表
+    const challengePromises = authorizations.map(async (authz) => {
         const d = authz.identifier.value;
 
         /* Select challenge based on priority */
@@ -113,14 +113,48 @@ module.exports = async function(client, userOpts) {
 
         logger.info(`[auto] [${d}] Found ${authz.challenges.length} challenges, selected type: ${challenge.type}`);
 
-        /* Trigger challengeCreateFn() */
-        logger.info(`[auto] [${d}] Trigger challengeCreateFn()`);
         const keyAuthorization = await client.getChallengeKeyAuthorization(challenge);
 
-        let recordItem;
-        try {
-            recordItem = await opts.challengeCreateFn(authz, challenge, keyAuthorization);
+        return {
+            authz, keyAuthorization, domain: d, challenge
+        };
+    });
 
+    // 执行获取challenge信息列表
+    const challengeInfos = await Promise.all(challengePromises);
+
+
+    // 创建dns records 的promise
+    const challengeCreatePromises = challengeInfos.map(async (challengeInfo, index) => {
+        const { domain, authz, challenge, keyAuthorization } = challengeInfo;
+        try {
+            await sleep(index * 2000); // 延迟2秒再请求下一个
+            logger.info(`[auto] [${domain}] Trigger challengeCreateFn()`);
+            challengeInfo.record = await opts.challengeCreateFn(authz, challenge, keyAuthorization);
+            return challengeInfo;
+        }
+        catch (e) {
+            logger.error('challengeCreate error', e);
+            return e;
+        }
+    });
+
+    // 执行创建dns record
+    const challengeRecordInfos = await Promise.all(challengeCreatePromises);
+
+    try {
+        // 如果创建record有错误，直接报错
+        const hasError = challengeRecordInfos.filter((item) => item instanceof Error);
+        if (hasError.length > 0) {
+            throw new Error(hasError[0]);
+        }
+        // 等待30秒，尽量等dns记录更新到远端
+        logger.info('[auto] 等待30秒');
+        await sleep(30000);
+        // 开始验证
+        const verifys = challengeRecordInfos.map(async (challengeInfo) => {
+            const { domain, authz, challenge } = challengeInfo;
+            const d = domain;
             /* Challenge verification */
             if (opts.skipChallengeVerification === true) {
                 logger.info(`[auto] [${d}] Skipping challenge verification since skipChallengeVerification=true`);
@@ -134,33 +168,30 @@ module.exports = async function(client, userOpts) {
             logger.info(`[auto] [${d}] Completing challenge with ACME provider and waiting for valid status`);
             await client.completeChallenge(challenge);
             await client.waitForValidStatus(challenge);
-        }
-        finally {
+        });
+        logger.info('[auto] Waiting for challenge valid status');
+        await Promise.all(verifys);
+        // 验证成功
+        logger.info('[auto] challenge verify success');
+    }
+    finally {
+        // 删除record
+        const willRemovePromises = challengeRecordInfos.filter((item) => item && !(item instanceof Error)).map(async (challengeInfo, index) => {
+            await sleep(index * 2000); // 延迟2秒再请求下一个
+            const { authz, challenge, keyAuthorization, record, domain } = challengeInfo;
             /* Trigger challengeRemoveFn(), suppress errors */
-            logger.info(`[auto] [${d}] Trigger challengeRemoveFn()`);
+            logger.info(`[auto] [${domain}] Trigger challengeRemoveFn()`);
 
             try {
-                await opts.challengeRemoveFn(authz, challenge, keyAuthorization, recordItem);
+                await opts.challengeRemoveFn(authz, challenge, keyAuthorization, record);
             }
             catch (e) {
-                logger.info(`[auto] [${d}] challengeRemoveFn threw error: ${e.message}`);
+                logger.info(`[auto] [${domain}] challengeRemoveFn threw error: ${e.message}`);
             }
-        }
-    });
+        });
 
-    logger.info('[auto] Waiting for challenge valid status');
-    try {
-        await Promise.all(challengePromises);
+        await Promise.all(willRemovePromises);
     }
-    catch (e) {
-        logger.error('验证出错：', e);
-        throw e;
-    }
-
-
-    /**
-     * Finalize order and download certificate
-     */
 
     logger.info('[auto] Finalizing order and downloading certificate');
     await client.finalizeOrder(order, opts.csr);

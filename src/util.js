@@ -28,6 +28,7 @@ async function retryPromise(fn, attempts, backoff) {
     }
     catch (e) {
         if (aborted || ((backoff.attempts + 1) >= attempts)) {
+            logger.error(e);
             throw e;
         }
 

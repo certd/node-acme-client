@@ -174,6 +174,10 @@ module.exports = async function(client, userOpts) {
         // 验证成功
         logger.info('[auto] challenge verify success');
     }
+    catch (e) {
+        logger.error('申请时出错:', e);
+        throw e;
+    }
     finally {
         // 删除record
         const willRemovePromises = challengeRecordInfos.filter((item) => item && !(item instanceof Error)).map(async (challengeInfo, index) => {

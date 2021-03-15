@@ -559,7 +559,7 @@ class AcmeClient {
 
             if (resp.data.status === 'invalid') {
                 abort();
-                throw new Error(util.formatResponseError(resp));
+                throw new Error(`Operation is invalid:${util.formatResponseError(resp)}`);
             }
             else if (resp.data.status === 'pending') {
                 throw new Error('Operation is pending');
